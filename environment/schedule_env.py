@@ -7,62 +7,70 @@ class ScheduleEnv(Env):
         super(ScheduleEnv, self).__init__()
         
         self.df = df
+        self.activities = df['ACTIVITY_CODE'].unique()
+        self.num_activities = len(self.activities)
         self.current_step = 0
-        self.max_steps = 24  # Planification horaire sur 24h
+        self.max_steps = 24  # Simule une journée de 24 heures
         
-        # Définir l'espace d'action (toutes les activités possibles)
-        self.action_space = spaces.Discrete(len(df['ACTIVITY_CODE'].unique()))
+        # Espace d'action = choisir une activité
+        self.action_space = spaces.Discrete(self.num_activities)
         
-        # Définir l'espace d'observation
+        # Espace d'observation = [heure, jour de la semaine, week-end ou non]
         self.observation_space = spaces.Box(
-            low=np.array([0, 0, 0]), 
-            high=np.array([24, 6, 1]),  # [heure, jour, weekend]
+            low=np.array([0, 0, 0]),
+            high=np.array([24, 6, 1]),
             dtype=np.float32
         )
         
+        self.current_hour = 8  # Début de la journée à 8h
+        self.day_of_week = np.random.randint(0, 7)
+        self.is_weekend = int(self.day_of_week >= 5)
+        self.schedule = []
+
     def reset(self):
-        """Réinitialiser l'environnement"""
+        """Réinitialise l'environnement au début d'une journée."""
         self.current_step = 0
-        current_time = 8 * 60  # Commence à 8h du matin (en minutes)
-        day_of_week = np.random.randint(0, 6)  # Jour aléatoire
-        is_weekend = 1 if day_of_week in [5, 6] else 0
-        
-        self.state = np.array([
-            current_time / 60,  # Convertir en heures
-            day_of_week,
-            is_weekend
-        ])
-        
-        return self.state
+        self.current_hour = 8
+        self.day_of_week = np.random.randint(0, 7)
+        self.is_weekend = int(self.day_of_week >= 5)
+        self.schedule = []
+
+        return self._get_obs()
     
+    def _get_obs(self):
+        """Retourne l'état actuel sous forme de vecteur."""
+        return np.array([self.current_hour, self.day_of_week, self.is_weekend], dtype=np.float32)
+
     def step(self, action):
-        """Exécuter une action"""
-        # Récupérer la durée moyenne de l'activité choisie
-        activity_duration = self.df[self.df['ACTIVITY_CODE'] == action]['TUACTDUR24'].mean()
+        """Exécute une action choisie (activité) et retourne l'état suivant, la récompense, et si la journée est terminée."""
+        if self.current_step >= self.max_steps:
+            done = True
+            return self._get_obs(), 0, done, {}
+
+        # Filtrer les données de l'activité sélectionnée
+        activity_data = self.df[self.df['ACTIVITY_CODE'] == action]
         
-        # Calculer la récompense (à personnaliser)
-        reward = self._calculate_reward(action, activity_duration)
-        
-        # Mettre à jour l'état
-        self.current_step += 1
-        new_time = (self.state[0] * 60 + activity_duration) / 60  # Avancer le temps
-        
-        done = (new_time >= 24) or (self.current_step >= self.max_steps)
-        
-        self.state = np.array([
-            new_time,
-            self.state[1],  # Même jour
-            self.state[2]   # Même weekend
-        ])
-        
-        return self.state, reward, done, {}
-    
-    def _calculate_reward(self, action, duration):
-        """Fonction de récompense personnalisée"""
-        # Exemple simple : récompenser les activités productives
-        productive_activities = [3, 5, 7]  # À adapter avec vos codes d'activités
-        
-        if action in productive_activities:
-            return min(duration / 60, 1.0)  # Récompense basée sur la durée
+        if activity_data.empty:
+            duration = 1  # activité inconnue, faible durée
         else:
-            return -0.1  # Pénalité pour les activités non productives
+            duration = activity_data['TUACTDUR24'].mean() / 60  # conversion en heures
+            duration = max(0.25, min(duration, 3.0))  # clamp entre 15min et 3h
+
+        self.current_hour += duration
+        self.current_step += 1
+        self.schedule.append((self.current_hour, action))
+
+        # Définir si la journée est terminée
+        done = self.current_hour >= 24
+
+        # Récompense basée sur la variété et la progression de la journée
+        reward = 1.0 - abs(self.current_hour - 12) / 12.0  # meilleure répartition sur la journée
+        reward -= 0.05 * self.schedule.count((self.current_hour, action))  # pénaliser la répétition
+
+        return self._get_obs(), reward, done, {}
+
+    def render(self, mode='human'):
+        """Affiche le planning courant."""
+        print(f"📅 Jour: {self.day_of_week} | Planning:")
+        for i, (hour, act) in enumerate(self.schedule):
+            print(f" - {hour:.2f}h : Activité {act}")

@@ -1,0 +1,305 @@
+personal_scheduler/
+├── Data/
+│   ├── raw/atus_full_selected.csv
+│   └── processed/preprocessed_data.csv
+├── environment/
+│   └── schedule_env.py
+├── models/
+│   └── dqn_model.h5
+├── outputs/
+├── requirements.txt
+├── notebooks/
+│   ├── 1_data_exploration.ipynb
+│   ├── 2_data_preprocessing.ipynb
+│   └── 3_dqn_training.ipynb
+└── streamlit_app/
+    └── app.py
+le voila le code de chaque fichier:
+│   ├── 2_data_preprocessing.ipynb
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+import os
+import pickle
+# 1. Chargement des données
+cols_to_load = [
+    'TUACTDUR24',    # Durée de l'activité
+    'ACTIVITY_NAME', # Nom de l'activité
+    'TUSTARTTIM',    # Heure de début (format HH:MM:SS)
+    'TUDIARYDAY'     # Jour de la semaine
+]
+df = pd.read_csv("../Data/raw/atus_full_selected.csv", usecols=cols_to_load)
+
+# 2. Nettoyage des données
+df = df.dropna()
+df = df.reset_index(drop=True)
+# 3. Nouvelle fonction de conversion du temps
+def time_to_minutes(t):
+    """Convertit HH:MM:SS en minutes depuis minuit"""
+    try:
+        hh, mm, ss = map(int, t.split(':'))
+        return hh * 60 + mm
+    except:
+        return 0  # Valeur par défaut si conversion échoue
+# Application de la conversion
+df['START_MINUTES'] = df['TUSTARTTIM'].apply(time_to_minutes)
+# 4. Vérification des conversions
+print("Exemples de conversion:")
+print(df[['TUSTARTTIM', 'START_MINUTES']].head())
+# 5. Encodage et autres transformations
+activity_encoder = LabelEncoder()
+df['ACTIVITY_CODE'] = activity_encoder.fit_transform(df['ACTIVITY_NAME'])
+df['DAY_OF_WEEK'] = df['TUDIARYDAY'] - 1  # 0=dimanche, 6=samedi
+df['IS_WEEKEND'] = (df['DAY_OF_WEEK'] >= 5).astype(int)
+
+# 6. Sélection finale des colonnes
+final_columns = [
+    'ACTIVITY_CODE',
+    'TUACTDUR24',
+    'START_MINUTES',
+    'DAY_OF_WEEK',
+    'IS_WEEKEND'
+]
+final_df = df[final_columns]
+# 7. Sauvegarde
+os.makedirs("../Data/processed", exist_ok=True)
+final_df.to_csv("../Data/processed/cleaned_data.csv", index=False)
+
+with open("../Data/processed/activity_encoder.pkl", "wb") as f:
+    pickle.dump(activity_encoder, f)
+
+print("Prétraitement terminé avec succès!")
+│   └── 3_dqn_training.ipynb
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from collections import deque
+import random
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+import os
+import sys
+
+# Ajouter le chemin du dossier parent (si besoin d'importer ScheduleEnv)
+parent_dir = os.path.abspath(os.path.join(os.getcwd(), '..'))
+sys.path.append(parent_dir)
+from environment.schedule_env import ScheduleEnv
+# 1. Chargement des données
+df = pd.read_csv("../Data/processed/cleaned_data.csv")
+# 2. Initialiser l'environnement
+env = ScheduleEnv(df)
+print(f"\n✅ Environnement créé avec {env.action_space.n} actions possibles")
+
+# 3. Paramètres du DQN
+state_size = 3
+action_size = env.action_space.n
+memory = deque(maxlen=2000)
+batch_size = 32
+gamma = 0.95
+epsilon = 1.0
+epsilon_min = 0.01
+epsilon_decay = 0.995
+# 4. Création du modèle DQN
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(24, input_dim=state_size, activation='relu'),
+    tf.keras.layers.Dense(24, activation='relu'),
+    tf.keras.layers.Dense(action_size, activation='linear')
+])
+model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.001))
+
+def update_plots(rewards, mean_rewards, epsilons, losses):
+    ax1.clear()
+    ax2.clear()
+    
+    ax1.plot(rewards, label='Récompense par épisode', alpha=0.4)
+    ax1.plot(mean_rewards, label='Moyenne glissante (20)', color='red')
+    ax1.set_title('Évolution des récompenses')
+    ax1.set_xlabel('Épisode')
+    ax1.set_ylabel('Récompense')
+    ax1.legend()
+    ax1.grid(True)
+
+    ax2.plot(epsilons, label='Epsilon', color='green')
+    if losses:
+        ax2.plot(losses, label='Perte (Loss)', color='orange')
+    ax2.set_title("Évolution de l'epsilon et des pertes")
+    ax2.set_xlabel("Épisode")
+    ax2.legend()
+    ax2.grid(True)
+
+    plt.tight_layout()
+    plt.draw()
+    plt.pause(0.001)
+
+# 6. Entraînement du DQN
+def train_dqn(episodes=300):
+    global epsilon
+    rewards_history = []
+    epsilons = []
+    mean_rewards = []
+    loss_history = []
+
+    progress_bar = tqdm(range(episodes), desc="🔁 Entraînement DQN", unit="episode")
+
+    for episode in progress_bar:
+        state = env.reset()
+        state = np.reshape(state, [1, state_size])
+        total_reward = 0
+        done = False
+        episode_loss = []
+
+        while not done:
+            if np.random.rand() <= epsilon:
+                action = random.randrange(action_size)
+            else:
+                action = np.argmax(model.predict(state, verbose=0)[0])
+
+            next_state, reward, done, _ = env.step(action)
+            next_state = np.reshape(next_state, [1, state_size])
+
+            memory.append((state, action, reward, next_state, done))
+            state = next_state
+            total_reward += reward
+
+            if len(memory) >= batch_size:
+                minibatch = random.sample(memory, batch_size)
+                states = np.array([x[0][0] for x in minibatch])
+                actions = np.array([x[1] for x in minibatch])
+                rewards = np.array([x[2] for x in minibatch])
+                next_states = np.array([x[3][0] for x in minibatch])
+                dones = np.array([x[4] for x in minibatch])
+
+                targets = model.predict(states, verbose=0)
+                next_q_values = model.predict(next_states, verbose=0)
+
+                for i in range(batch_size):
+                    if dones[i]:
+                        targets[i][actions[i]] = rewards[i]
+                    else:
+                        targets[i][actions[i]] = rewards[i] + gamma * np.max(next_q_values[i])
+
+                history = model.fit(states, targets, epochs=1, verbose=0)
+                episode_loss.append(history.history['loss'][0])
+
+        # Mise à jour epsilon
+        epsilon = max(epsilon_min, epsilon * epsilon_decay)
+        rewards_history.append(total_reward)
+        epsilons.append(epsilon)
+        loss_history.append(np.mean(episode_loss) if episode_loss else 0)
+
+        # Moyenne glissante
+        window_size = 20
+        if episode >= window_size:
+            mean_rewards.append(np.mean(rewards_history[-window_size:]))
+        else:
+            mean_rewards.append(np.mean(rewards_history))
+
+        progress_bar.set_postfix({
+            'Reward': f"{total_reward:.1f}",
+            'Epsilon': f"{epsilon:.2f}",
+            'AvgReward': f"{mean_rewards[-1]:.1f}",
+            'Loss': f"{loss_history[-1]:.4f}" if episode_loss else "N/A"
+        })
+
+        if episode % 10 == 0:
+            update_plots(rewards_history, mean_rewards, epsilons, loss_history)
+
+    plt.ioff()
+    plt.show()
+    return rewards_history, mean_rewards, loss_history
+# 7. Lancer l'entraînement
+print("\n🚀 Début de l'entraînement...")
+rewards, avg_rewards, losses = train_dqn(episodes=300)
+
+# 8. Sauvegarde du modèle
+os.makedirs("../models", exist_ok=True)
+model.save("../models/dqn_final.h5")
+print("\n✅ Modèle sauvegardé dans '../models/dqn_final.h5'")
+# 9. Visualisation finale
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.plot(rewards)
+plt.title("Historique des récompenses")
+plt.xlabel("Épisode")
+plt.ylabel("Récompense")
+
+plt.subplot(1, 2, 2)
+plt.hist(rewards, bins=20)
+plt.title("Distribution des récompenses")
+plt.xlabel("Récompense")
+plt.ylabel("Fréquence")
+
+plt.tight_layout()
+plt.show()
+import torch
+torch.save(dqn_model.state_dict(), "trained_dqn_model.pth")
+├── environment/
+│   └── schedule_env.py:
+import numpy as np
+import pandas as pd
+from gym import Env, spaces
+
+class ScheduleEnv(Env):
+    def __init__(self, df):
+        super(ScheduleEnv, self).__init__()
+        
+        self.df = df
+        self.current_step = 0
+        self.max_steps = 24  # Planification horaire sur 24h
+        
+        # Définir l'espace d'action (toutes les activités possibles)
+        self.action_space = spaces.Discrete(len(df['ACTIVITY_CODE'].unique()))
+        
+        # Définir l'espace d'observation
+        self.observation_space = spaces.Box(
+            low=np.array([0, 0, 0]), 
+            high=np.array([24, 6, 1]),  # [heure, jour, weekend]
+            dtype=np.float32
+        )
+        
+    def reset(self):
+        """Réinitialiser l'environnement"""
+        self.current_step = 0
+        current_time = 8 * 60  # Commence à 8h du matin (en minutes)
+        day_of_week = np.random.randint(0, 6)  # Jour aléatoire
+        is_weekend = 1 if day_of_week in [5, 6] else 0
+        
+        self.state = np.array([
+            current_time / 60,  # Convertir en heures
+            day_of_week,
+            is_weekend
+        ])
+        
+        return self.state
+    
+    def step(self, action):
+        """Exécuter une action"""
+        # Récupérer la durée moyenne de l'activité choisie
+        activity_duration = self.df[self.df['ACTIVITY_CODE'] == action]['TUACTDUR24'].mean()
+        
+        # Calculer la récompense (à personnaliser)
+        reward = self._calculate_reward(action, activity_duration)
+        
+        # Mettre à jour l'état
+        self.current_step += 1
+        new_time = (self.state[0] * 60 + activity_duration) / 60  # Avancer le temps
+        
+        done = (new_time >= 24) or (self.current_step >= self.max_steps)
+        
+        self.state = np.array([
+            new_time,
+            self.state[1],  # Même jour
+            self.state[2]   # Même weekend
+        ])
+        
+        return self.state, reward, done, {}
+    
+    def _calculate_reward(self, action, duration):
+        """Fonction de récompense personnalisée"""
+        # Exemple simple : récompenser les activités productives
+        productive_activities = [3, 5, 7]  # À adapter avec vos codes d'activités
+        
+        if action in productive_activities:
+            return min(duration / 60, 1.0)  # Récompense basée sur la durée
+        else:
+            return -0.1  # Pénalité pour les activités non productives
