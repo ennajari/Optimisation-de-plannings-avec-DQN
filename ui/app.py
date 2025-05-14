@@ -171,7 +171,8 @@ def generate_optimized_schedule(env, model, user_constraints=None, day_of_week=N
                 (env.avg_duration['ACTIVITY_NAME'] == activity_name) & 
                 (env.avg_duration['TUDIARYDAY'] == env.current_day)
             ]
-            duration = duration_stats['TUACTDUR24'].values[0] if not duration_stats.empty else 60
+            duration = float(duration_stats['TUACTDUR24'].values[0]) if not duration_stats.empty else 60.0
+            duration = min(duration, 240.0)  # Cap duration at 4 hours
             
             time_slot = action[1]
             activities_planned.append((activity_name, time_slot, reward, duration))
@@ -192,13 +193,17 @@ def visualize_schedule_plotly(schedule, activities, activity_types, reference_da
         
         # Calculate end time
         end_time_minutes = time_slot * 60 + duration
+        days_offset = int(end_time_minutes // 1440)  # Number of days to add if exceeding 24 hours
+        end_time_minutes = end_time_minutes % 1440  # Minutes within the day
         end_hour = int(end_time_minutes // 60)
         end_minute = int(end_time_minutes % 60)
-        end_time = datetime.strptime(f"{reference_date} {end_hour:02d}:{end_minute:02d}", "%Y-%m-%d %H:%M")
         
-        # Ensure end_time is not before start_time (handle overnight cases)
-        if end_time < start_time:
-            end_time += timedelta(days=1)
+        # Parse end time, adjusting date if necessary
+        end_date = datetime.strptime(reference_date, "%Y-%m-%d") + timedelta(days=days_offset)
+        end_time = datetime.strptime(
+            f"{end_date.strftime('%Y-%m-%d')} {end_hour:02d}:{end_minute:02d}", 
+            "%Y-%m-%d %H:%M"
+        )
         
         schedule_data.append({
             'Heure_Début': start_time,
@@ -259,13 +264,18 @@ def create_weekly_calendar(daily_schedules, activity_types, all_activities_plann
         reference_date = day_to_date[day_name]
         
         start_time = datetime.strptime(f"{reference_date} {time_slot:02d}:00", "%Y-%m-%d %H:%M")
+        
         end_time_minutes = time_slot * 60 + duration
+        days_offset = int(end_time_minutes // 1440)
+        end_time_minutes = end_time_minutes % 1440
         end_hour = int(end_time_minutes // 60)
         end_minute = int(end_time_minutes % 60)
-        end_time = datetime.strptime(f"{reference_date} {end_hour:02d}:{end_minute:02d}", "%Y-%m-%d %H:%M")
         
-        if end_time < start_time:
-            end_time += timedelta(days=1)
+        end_date = datetime.strptime(reference_date, "%Y-%m-%d") + timedelta(days=days_offset)
+        end_time = datetime.strptime(
+            f"{end_date.strftime('%Y-%m-%d')} {end_hour:02d}:{end_minute:02d}", 
+            "%Y-%m-%d %H:%M"
+        )
         
         calendar_data.append({
             'Jour': day_name,
@@ -430,14 +440,26 @@ def main():
                 
                 st.subheader(f"Planning optimisé pour {selected_day_name}")
                 
-                fig = visualize_schedule_plotly(schedule, activities_planned, env.activity_types)
+                # Map selected day to a date (week of 2025-05-12)
+                day_to_date = {
+                    "Lundi": "2025-05-12",
+                    "Mardi": "2025-05-13",
+                    "Mercredi": "2025-05-14",
+                    "Jeudi": "2025-05-15",
+                    "Vendredi": "2025-05-16",
+                    "Samedi": "2025-05-17",
+                    "Dimanche": "2025-05-18"
+                }
+                reference_date = day_to_date[selected_day_name]
+                
+                fig = visualize_schedule_plotly(schedule, activities_planned, env.activity_types, reference_date)
                 st.plotly_chart(fig, use_container_width=True)
                 
                 if activities_planned:
                     st.subheader("Détail des activités")
                     
                     activities_df = pd.DataFrame([
-                        (act, f"{slot:02d}:00", f"{reward:.2f}", f"{duration} min") 
+                        (act, f"{slot:02d}:00", f"{reward:.2f}", f"{duration:.0f} min") 
                         for act, slot, reward, duration in activities_planned
                     ], columns=["Activité", "Heure", "Score", "Durée"])
                     
@@ -523,7 +545,7 @@ def main():
                     all_activities_planned.extend([(act, slot, reward, duration, day) for act, slot, reward, duration in day_activities])
                     total_weekly_reward += day_reward
                 
-                fig = create_weekly_calendar(daily_schedules, env.activity_types)
+                fig = create_weekly_calendar(daily_schedules, env.activity_types, all_activities_planned)
                 st.plotly_chart(fig, use_container_width=True)
                 
                 st.subheader("Statistiques hebdomadaires")
@@ -593,11 +615,12 @@ def main():
                 days = list(day_options.keys())
                 
                 for day_idx, day_name in enumerate(days):
-                    day_activities = [(act, slot) for act, slot, _, _, day in all_activities_planned if day == day_idx + 1]
-                    for activity, time_slot in day_activities:
+                    day_activities = [(act, slot, duration) for act, slot, _, duration, day in all_activities_planned if day == day_idx + 1]
+                    for activity, time_slot, duration in day_activities:
                         export_data.append({
                             'Jour': day_name,
-                            'Heure': f"{time_slot:02d}:00",
+                            'Heure_Début': f"{time_slot:02d}:00",
+                            'Durée': f"{duration:.0f} min",
                             'Activité': activity
                         })
                 
@@ -616,12 +639,12 @@ def main():
         Bienvenue dans votre Assistant Personnel de Gestion du Temps ! Cette application utilise l'intelligence artificielle
         pour vous aider à optimiser votre emploi du temps quotidien ou hebdomadaire.
         
-        ### 🧠 Comment ça marche ?
+        ### Comment ça marche ?
         
         Notre application utilise un algorithme d'apprentissage par renforcement appelé **Deep Q-Network (DQN)** pour analyser vos habitudes
         et préférences, puis générer un planning optimisé qui maximise votre productivité et votre satisfaction.
         
-        ### 🚀 Fonctionnalités
+        ###Fonctionnalités
         
         - **Planning quotidien**: Obtenez un emploi du temps optimisé pour une journée spécifique
         - **Planning hebdomadaire**: Visualisez un calendrier complet pour toute la semaine
@@ -629,12 +652,12 @@ def main():
         - **Contraintes horaires**: Ajoutez des activités obligatoires à des heures précises
         - **Statistiques**: Analysez la qualité de votre planning et identifiez vos heures les plus productives
         
-        ### 📊 Commencer
+        ###Commencer
         
         Utilisez les options dans la barre latérale pour personnaliser votre planning, puis cliquez sur "Générer planning" pour voir les résultats.
         """)
         
-        st.image("https://via.placeholder.com/800x400?text=Assistant+Personnel+de+Gestion+du+Temps", 
+        st.image("../logo/4406306.png", 
                  caption="Optimisez votre temps avec l'IA")
 
 if __name__ == "__main__":
