@@ -1,29 +1,16 @@
 """
-Application Streamlit pour l'Assistant Personnel de Gestion du Temps
-Utilise un modèle DQN pour optimiser les plannings personnels des utilisateurs
+Standalone Schedule Optimization Application
+A simplified version that works without external model files
 """
 
 import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-import tensorflow as tf
-from tensorflow.keras.models import load_model
-import sys
-import os
-import json
-from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
-from pathlib import Path
-
-# Vérifier la version de TensorFlow
-print(f"TensorFlow version: {tf.__version__}")
-
-# Ajouter le répertoire parent au chemin pour importer les modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from environment.schedule_env import ScheduleEnv
+from datetime import datetime, timedelta
+import random
 
 # Configuration de la page
 st.set_page_config(
@@ -33,20 +20,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Chemins de fichiers
-MODEL_PATH = '../models/dqn_schedule_model.h5'
-DATA_PATH = '../Data/processed/cleaned_data.csv'
-
-# Vérification des fichiers
-if not os.path.exists(MODEL_PATH):
-    st.error(f"Le fichier modèle n'existe pas : {MODEL_PATH}")
-if not os.path.exists(DATA_PATH):
-    st.warning(f"Le fichier de données n'existe pas : {DATA_PATH}. Utilisation de données synthétiques.")
-
+# Constants
 DEFAULT_ACTIVITIES = [
     'Travail', 'Repas', 'Transport', 'Loisirs', 'Sport', 
     'Sommeil', 'Tâches ménagères', 'Courses', 'Socialisation', 'Apprentissage'
 ]
+
 ACTIVITY_COLORS = {
     'Travail': '#FF6B6B',
     'Repas': '#4ECDC4',
@@ -59,163 +38,122 @@ ACTIVITY_COLORS = {
     'Socialisation': '#7BDFF2',
     'Apprentissage': '#B2DBBF'
 }
+
 DEFAULT_COLOR = '#CCCCCC'
 
-# Fonction pour charger le modèle
-@st.cache_resource
-def load_dqn_model():
-    """Charge le modèle DQN pré-entraîné"""
-    try:
-        model = load_model(MODEL_PATH)
-        return model
-    except Exception as e:
-        st.error(f"Erreur lors du chargement du modèle: {str(e)}")
-        return None
+# Activity preferences and typical durations (in minutes)
+ACTIVITY_PREFERENCES = {
+    'Travail': {'preferred_hours': [8, 9, 10, 11, 13, 14, 15, 16], 'duration': 180, 'priority': 9},
+    'Repas': {'preferred_hours': [7, 12, 19], 'duration': 45, 'priority': 8},
+    'Transport': {'preferred_hours': [7, 8, 17, 18], 'duration': 30, 'priority': 6},
+    'Loisirs': {'preferred_hours': [18, 19, 20, 21], 'duration': 90, 'priority': 5},
+    'Sport': {'preferred_hours': [6, 7, 17, 18, 19], 'duration': 60, 'priority': 7},
+    'Sommeil': {'preferred_hours': [22, 23, 0, 1, 2, 3, 4, 5, 6], 'duration': 480, 'priority': 10},
+    'Tâches ménagères': {'preferred_hours': [9, 10, 15, 16, 17], 'duration': 60, 'priority': 4},
+    'Courses': {'preferred_hours': [9, 10, 11, 15, 16, 17], 'duration': 75, 'priority': 5},
+    'Socialisation': {'preferred_hours': [18, 19, 20, 21], 'duration': 120, 'priority': 6},
+    'Apprentissage': {'preferred_hours': [9, 10, 11, 20, 21], 'duration': 90, 'priority': 7}
+}
 
-# Fonction pour charger les données
-@st.cache_data
-def load_data():
-    """Charge les données prétraitées"""
-    try:
-        data = pd.read_csv(DATA_PATH)
-        return data
-    except Exception as e:
-        st.warning(f"Erreur lors du chargement des données: {str(e)}")
-        st.info("Utilisation de données par défaut")
-        return None
-
-# Créer un environnement Gym pour l'optimisation de planning
-def create_environment(data=None, user_activities=None):
-    """Crée l'environnement de simulation pour l'optimisation de planning"""
-    if user_activities is None:
-        user_activities = DEFAULT_ACTIVITIES
+class SimpleScheduleOptimizer:
+    """A simplified schedule optimizer that mimics DQN behavior"""
     
-    env = ScheduleEnv(data_path=DATA_PATH if data is not None else None)
-    
-    if user_activities:
-        env.activity_types = np.array(user_activities)
-    
-    return env
-
-# Fonction pour générer un planning optimisé avec DQN
-def generate_optimized_schedule(env, model, user_constraints=None, day_of_week=None):
-    """
-    Génère un planning optimisé en utilisant le modèle DQN
-    
-    Args:
-        env: Environnement de simulation
-        model: Modèle DQN pré-entraîné
-        user_constraints: Dictionnaire de contraintes utilisateur
-        day_of_week: Jour de la semaine spécifique (1-7, lundi-dimanche)
+    def __init__(self, activities, day_of_week=1):
+        self.activities = activities
+        self.day_of_week = day_of_week
+        self.schedule = {}
+        self.available_hours = list(range(24))
         
-    Returns:
-        schedule: Planning généré (matrice)
-        activities: Liste des activités planifiées (avec heures et durées)
-        rewards: Récompenses obtenues
-    """
-    state = env.reset()
-    
-    if day_of_week is not None:
-        env.current_day = day_of_week
-        day_of_week_vector = np.zeros(env.days_of_week)
-        day_of_week_vector[env.current_day - 1] = 1
-        state['day_of_week'] = day_of_week_vector
-    
-    if user_constraints:
-        for activity, time_slots in user_constraints.items():
-            if activity in env.activity_types:
-                activity_idx = np.where(env.activity_types == activity)[0][0]
-                for slot in time_slots:
-                    if 0 <= slot < env.n_time_slots:
-                        env.current_schedule[slot, activity_idx] = 1
-                        env.available_time -= 1
-    
-    done = False
-    total_reward = 0
-    activities_planned = []
-    
-    while not done and env.available_time > 0:
-        schedule_flat = state['schedule'].flatten()
-        day_of_week = state['day_of_week']
-        time_remaining = state['time_remaining']
-        state_tensor = np.concatenate([schedule_flat, day_of_week, time_remaining])
-        state_tensor = np.expand_dims(state_tensor, 0)
+    def calculate_activity_score(self, activity, hour, constraints=None):
+        """Calculate a score for placing an activity at a specific hour"""
+        if activity not in ACTIVITY_PREFERENCES:
+            return random.uniform(0.3, 0.7)
         
-        act_values = model.predict(state_tensor, verbose=0)[0]
+        prefs = ACTIVITY_PREFERENCES[activity]
+        score = prefs['priority'] / 10
         
-        n_activities = len(env.activity_types)
-        action_idx = np.argmax(act_values)
-        activity_id = action_idx // env.n_time_slots
-        time_slot = action_idx % env.n_time_slots
-        action = np.array([activity_id, time_slot])
+        # Boost score if hour is in preferred hours
+        if hour in prefs['preferred_hours']:
+            score += 0.3
         
-        while env.current_schedule[action[1]].sum() > 0:
-            act_values[action_idx] = -np.inf
-            action_idx = np.argmax(act_values)
-            activity_id = action_idx // env.n_time_slots
-            time_slot = action_idx % env.n_time_slots
-            action = np.array([activity_id, time_slot])
-            
-            if np.all(act_values == -np.inf):
-                done = True
+        # Weekend adjustments
+        if self.day_of_week in [6, 7]:  # Saturday, Sunday
+            if activity in ['Travail']:
+                score *= 0.3  # Reduce work on weekends
+            elif activity in ['Loisirs', 'Sport', 'Socialisation']:
+                score *= 1.2  # Boost leisure activities
+        
+        # Constraint bonus
+        if constraints and activity in constraints:
+            if hour in constraints[activity]:
+                score += 0.5
+        
+        return max(0, min(1, score + random.uniform(-0.1, 0.1)))
+    
+    def optimize_schedule(self, constraints=None, max_activities=8):
+        """Generate an optimized schedule"""
+        schedule_items = []
+        used_hours = set()
+        
+        # Handle constraints first
+        if constraints:
+            for activity, hours in constraints.items():
+                for hour in hours:
+                    if hour not in used_hours and activity in self.activities:
+                        duration = ACTIVITY_PREFERENCES.get(activity, {}).get('duration', 60)
+                        score = self.calculate_activity_score(activity, hour, constraints)
+                        schedule_items.append((activity, hour, score, duration))
+                        used_hours.add(hour)
+        
+        # Fill remaining slots
+        remaining_activities = [a for a in self.activities if not any(a == item[0] for item in schedule_items)]
+        
+        for _ in range(max_activities - len(schedule_items)):
+            if not remaining_activities:
                 break
+                
+            best_score = -1
+            best_combo = None
+            
+            for activity in remaining_activities:
+                for hour in range(24):
+                    if hour not in used_hours:
+                        score = self.calculate_activity_score(activity, hour, constraints)
+                        if score > best_score:
+                            best_score = score
+                            best_combo = (activity, hour, score)
+            
+            if best_combo:
+                activity, hour, score = best_combo
+                duration = ACTIVITY_PREFERENCES.get(activity, {}).get('duration', 60)
+                schedule_items.append((activity, hour, score, duration))
+                used_hours.add(hour)
+                remaining_activities.remove(activity)
         
-        if not done:
-            next_state, reward, done, info = env.step(action)
-            
-            state = next_state
-            total_reward += reward
-            
-            activity_name = env.activity_types[action[0]]
-            duration_stats = env.avg_duration[
-                (env.avg_duration['ACTIVITY_NAME'] == activity_name) & 
-                (env.avg_duration['TUDIARYDAY'] == env.current_day)
-            ]
-            duration = float(duration_stats['TUACTDUR24'].values[0]) if not duration_stats.empty else 60.0
-            duration = min(duration, 240.0)  # Cap duration at 4 hours
-            
-            time_slot = action[1]
-            activities_planned.append((activity_name, time_slot, reward, duration))
-    
-    return env.current_schedule, activities_planned, total_reward
+        return sorted(schedule_items, key=lambda x: x[1])  # Sort by hour
 
-# Fonction pour visualiser le planning avec Plotly
-def visualize_schedule_plotly(schedule, activities, activity_types, reference_date="2025-05-12"):
-    """Crée une visualisation interactive du planning avec Plotly"""
-    from datetime import datetime, timedelta
+def visualize_schedule_plotly(activities, reference_date="2025-05-12"):
+    """Create an interactive schedule visualization with Plotly"""
+    if not activities:
+        st.warning("Aucune activité n'a pu être planifiée.")
+        return go.Figure()
     
     schedule_data = []
     
     for activity_name, time_slot, reward, duration in activities:
-        # Calculate start time as a datetime
-        start_hour = time_slot
-        start_time = datetime.strptime(f"{reference_date} {start_hour:02d}:00", "%Y-%m-%d %H:%M")
+        # Calculate start time
+        start_time = datetime.strptime(f"{reference_date} {time_slot:02d}:00", "%Y-%m-%d %H:%M")
         
         # Calculate end time
-        end_time_minutes = time_slot * 60 + duration
-        days_offset = int(end_time_minutes // 1440)  # Number of days to add if exceeding 24 hours
-        end_time_minutes = end_time_minutes % 1440  # Minutes within the day
-        end_hour = int(end_time_minutes // 60)
-        end_minute = int(end_time_minutes % 60)
-        
-        # Parse end time, adjusting date if necessary
-        end_date = datetime.strptime(reference_date, "%Y-%m-%d") + timedelta(days=days_offset)
-        end_time = datetime.strptime(
-            f"{end_date.strftime('%Y-%m-%d')} {end_hour:02d}:{end_minute:02d}", 
-            "%Y-%m-%d %H:%M"
-        )
+        end_time = start_time + timedelta(minutes=duration)
         
         schedule_data.append({
             'Heure_Début': start_time,
             'Heure_Fin': end_time,
             'Activité': activity_name,
-            'Valeur': 1,
+            'Score': reward,
             'Couleur': ACTIVITY_COLORS.get(activity_name, DEFAULT_COLOR)
         })
-    
-    if not schedule_data:
-        st.warning("Aucune activité n'a pu être planifiée.")
-        return go.Figure()
     
     schedule_df = pd.DataFrame(schedule_data)
     
@@ -226,7 +164,8 @@ def visualize_schedule_plotly(schedule, activities, activity_types, reference_da
         y="Activité", 
         color="Activité",
         color_discrete_map=ACTIVITY_COLORS,
-        title="Planning Journalier Optimisé"
+        title="Planning Journalier Optimisé",
+        hover_data=["Score"]
     )
     
     fig.update_layout(
@@ -235,18 +174,15 @@ def visualize_schedule_plotly(schedule, activities, activity_types, reference_da
         height=600,
         showlegend=True,
         xaxis=dict(
-            tickformat="%H:%M",  # Display only time (HH:MM)
+            tickformat="%H:%M",
             tickangle=45
         )
     )
     
     return fig
 
-# Fonction pour créer un calendrier hebdomadaire
-def create_weekly_calendar(daily_schedules, activity_types, all_activities_planned):
-    """Crée un calendrier hebdomadaire à partir des plannings quotidiens"""
-    from datetime import datetime, timedelta
-    
+def create_weekly_calendar(all_activities_planned):
+    """Create a weekly calendar from daily schedules"""
     days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
     day_to_date = {
         'Lundi': '2025-05-12',
@@ -257,6 +193,7 @@ def create_weekly_calendar(daily_schedules, activity_types, all_activities_plann
         'Samedi': '2025-05-17',
         'Dimanche': '2025-05-18'
     }
+    
     calendar_data = []
     
     for act, time_slot, reward, duration, day in all_activities_planned:
@@ -264,24 +201,14 @@ def create_weekly_calendar(daily_schedules, activity_types, all_activities_plann
         reference_date = day_to_date[day_name]
         
         start_time = datetime.strptime(f"{reference_date} {time_slot:02d}:00", "%Y-%m-%d %H:%M")
-        
-        end_time_minutes = time_slot * 60 + duration
-        days_offset = int(end_time_minutes // 1440)
-        end_time_minutes = end_time_minutes % 1440
-        end_hour = int(end_time_minutes // 60)
-        end_minute = int(end_time_minutes % 60)
-        
-        end_date = datetime.strptime(reference_date, "%Y-%m-%d") + timedelta(days=days_offset)
-        end_time = datetime.strptime(
-            f"{end_date.strftime('%Y-%m-%d')} {end_hour:02d}:{end_minute:02d}", 
-            "%Y-%m-%d %H:%M"
-        )
+        end_time = start_time + timedelta(minutes=duration)
         
         calendar_data.append({
             'Jour': day_name,
             'Heure_Début': start_time,
             'Heure_Fin': end_time,
             'Activité': act,
+            'Score': reward,
             'Couleur': ACTIVITY_COLORS.get(act, DEFAULT_COLOR)
         })
     
@@ -298,7 +225,8 @@ def create_weekly_calendar(daily_schedules, activity_types, all_activities_plann
         y="Jour", 
         color="Activité",
         color_discrete_map=ACTIVITY_COLORS,
-        title="Planning Hebdomadaire Optimisé"
+        title="Planning Hebdomadaire Optimisé",
+        hover_data=["Score"]
     )
     
     fig.update_layout(
@@ -314,46 +242,37 @@ def create_weekly_calendar(daily_schedules, activity_types, all_activities_plann
     
     return fig
 
-# Fonction pour calculer des statistiques sur le planning
 def calculate_schedule_stats(activities):
-    """Calcule des statistiques sur le planning généré"""
+    """Calculate statistics about the generated schedule"""
     if not activities:
         return {}
     
     activity_counts = {}
-    for activity, time_slot, reward, duration in activities:
-        if activity in activity_counts:
-            activity_counts[activity] += 1
-        else:
-            activity_counts[activity] = 1
-    
     rewards_by_hour = {}
+    total_reward = 0
+    
     for activity, time_slot, reward, duration in activities:
-        if time_slot in rewards_by_hour:
-            rewards_by_hour[time_slot] += reward
-        else:
-            rewards_by_hour[time_slot] = reward
+        # Count activities
+        activity_counts[activity] = activity_counts.get(activity, 0) + 1
+        
+        # Track rewards by hour
+        rewards_by_hour[time_slot] = rewards_by_hour.get(time_slot, 0) + reward
+        total_reward += reward
     
     most_productive_hour = max(rewards_by_hour, key=rewards_by_hour.get) if rewards_by_hour else None
     
     return {
         'activity_counts': activity_counts,
         'rewards_by_hour': rewards_by_hour,
-        'most_productive_hour': most_productive_hour
+        'most_productive_hour': most_productive_hour,
+        'total_reward': total_reward
     }
 
-# Interface utilisateur avec Streamlit
 def main():
     st.title("📅 Assistant Personnel de Gestion du Temps")
     st.subheader("Optimisez votre planning quotidien avec l'intelligence artificielle")
     
-    model = load_dqn_model()
-    data = load_data()
-    
-    if model is None:
-        st.error("Le modèle DQN n'a pas pu être chargé. Veuillez vérifier le fichier modèle.")
-        return
-    
+    # Sidebar configuration
     st.sidebar.title("Paramètres")
     
     planning_type = st.sidebar.radio(
@@ -375,6 +294,7 @@ def main():
     else:
         selected_day = None
     
+    # Activity configuration
     st.sidebar.subheader("Activités personnalisées")
     
     use_default_activities = st.sidebar.checkbox("Utiliser les activités par défaut", value=True)
@@ -388,15 +308,17 @@ def main():
         )
         activities = [act.strip() for act in custom_activities_input.split("\n") if act.strip()]
     
+    # Display activities with colors
     st.sidebar.subheader("Liste des activités")
     for i, activity in enumerate(activities):
         color = ACTIVITY_COLORS.get(activity, DEFAULT_COLOR)
         st.sidebar.markdown(
-            f"<div style='background-color:{color}; padding:5px; border-radius:5px; margin:2px 0;'>"
+            f"<div style='background-color:{color}; padding:5px; border-radius:5px; margin:2px 0; color:white; font-weight:bold;'>"
             f"{i+1}. {activity}</div>",
             unsafe_allow_html=True
         )
     
+    # Constraints
     st.sidebar.subheader("Contraintes (optionnel)")
     add_constraints = st.sidebar.checkbox("Ajouter des contraintes horaires")
     
@@ -418,59 +340,64 @@ def main():
                 user_constraints[constraint_activity].extend(time_slots)
             else:
                 user_constraints[constraint_activity] = time_slots
+            st.sidebar.success(f"Contrainte ajoutée pour {constraint_activity}")
     
     if user_constraints:
         st.sidebar.subheader("Contraintes ajoutées")
         for activity, slots in user_constraints.items():
-            st.sidebar.write(f"{activity}: {', '.join([f'{s:02d}:00' for s in slots])}")
+            st.sidebar.write(f"**{activity}**: {', '.join([f'{s:02d}:00' for s in slots])}")
     
+    # Generate button
     if planning_type == "📆 Planning quotidien":
-        generate_button = st.sidebar.button("Générer planning quotidien")
+        generate_button = st.sidebar.button("🚀 Générer planning quotidien", type="primary")
     else:
-        generate_button = st.sidebar.button("Générer planning hebdomadaire")
+        generate_button = st.sidebar.button("🚀 Générer planning hebdomadaire", type="primary")
     
+    # Main content
     if generate_button:
         with st.spinner("Génération du planning en cours..."):
-            env = create_environment(data, activities)
-            
             if planning_type == "📆 Planning quotidien":
-                schedule, activities_planned, total_reward = generate_optimized_schedule(
-                    env, model, user_constraints, selected_day
-                )
+                # Daily schedule
+                optimizer = SimpleScheduleOptimizer(activities, selected_day)
+                activities_planned = optimizer.optimize_schedule(user_constraints)
                 
                 st.subheader(f"Planning optimisé pour {selected_day_name}")
                 
-                # Map selected day to a date (week of 2025-05-12)
+                # Map selected day to a date
                 day_to_date = {
-                    "Lundi": "2025-05-12",
-                    "Mardi": "2025-05-13",
-                    "Mercredi": "2025-05-14",
-                    "Jeudi": "2025-05-15",
-                    "Vendredi": "2025-05-16",
-                    "Samedi": "2025-05-17",
+                    "Lundi": "2025-05-12", "Mardi": "2025-05-13", "Mercredi": "2025-05-14",
+                    "Jeudi": "2025-05-15", "Vendredi": "2025-05-16", "Samedi": "2025-05-17",
                     "Dimanche": "2025-05-18"
                 }
                 reference_date = day_to_date[selected_day_name]
                 
-                fig = visualize_schedule_plotly(schedule, activities_planned, env.activity_types, reference_date)
+                # Visualize schedule
+                fig = visualize_schedule_plotly(activities_planned, reference_date)
                 st.plotly_chart(fig, use_container_width=True)
                 
                 if activities_planned:
-                    st.subheader("Détail des activités")
+                    # Activity details
+                    st.subheader("📋 Détail des activités")
                     
                     activities_df = pd.DataFrame([
-                        (act, f"{slot:02d}:00", f"{reward:.2f}", f"{duration:.0f} min") 
+                        {
+                            "Activité": act,
+                            "Heure": f"{slot:02d}:00",
+                            "Score": f"{reward:.2f}",
+                            "Durée": f"{duration:.0f} min"
+                        }
                         for act, slot, reward, duration in activities_planned
-                    ], columns=["Activité", "Heure", "Score", "Durée"])
+                    ])
                     
                     st.dataframe(activities_df.sort_values(by="Heure"), use_container_width=True)
                     
+                    # Statistics
                     stats = calculate_schedule_stats(activities_planned)
                     
                     col1, col2 = st.columns(2)
                     
                     with col1:
-                        st.subheader("Distribution des activités")
+                        st.subheader("📊 Distribution des activités")
                         if stats['activity_counts']:
                             fig = px.pie(
                                 values=list(stats['activity_counts'].values()),
@@ -482,73 +409,86 @@ def main():
                             st.plotly_chart(fig, use_container_width=True)
                     
                     with col2:
-                        st.subheader("Productivité par heure")
+                        st.subheader("⚡ Productivité par heure")
                         if stats['rewards_by_hour']:
-                            hours = [f"{h:02d}:00" for h in stats['rewards_by_hour'].keys()]
-                            rewards = list(stats['rewards_by_hour'].values())
+                            hours = [f"{h:02d}:00" for h in sorted(stats['rewards_by_hour'].keys())]
+                            rewards = [stats['rewards_by_hour'][int(h.split(':')[0])] for h in hours]
                             
                             fig = px.bar(
                                 x=hours,
                                 y=rewards,
                                 title="Score de productivité par heure",
-                                labels={'x': 'Heure', 'y': 'Score de productivité'}
+                                labels={'x': 'Heure', 'y': 'Score de productivité'},
+                                color=rewards,
+                                color_continuous_scale='viridis'
                             )
                             st.plotly_chart(fig, use_container_width=True)
                     
                     if stats['most_productive_hour'] is not None:
-                        st.info(f"✨ Votre heure la plus productive est {stats['most_productive_hour']:02d}:00")
+                        st.info(f"✨ **Votre heure la plus productive est {stats['most_productive_hour']:02d}:00**")
                 
-                st.subheader("Évaluation du planning")
-                st.write(f"Score total du planning: {total_reward:.2f}")
+                # Schedule evaluation
+                st.subheader("📈 Évaluation du planning")
+                total_reward = stats.get('total_reward', 0)
+                st.write(f"**Score total du planning**: {total_reward:.2f}")
                 
-                quality = min(max(total_reward / 10, 0), 1)
+                quality = min(max(total_reward / len(activities_planned) if activities_planned else 0, 0), 1)
                 
                 gauge = go.Figure(go.Indicator(
                     mode="gauge+number",
                     value=quality * 100,
                     domain={'x': [0, 1], 'y': [0, 1]},
-                    title={'text': "Qualité du planning"},
+                    title={'text': "Qualité du planning (%)"},
                     gauge={
                         'axis': {'range': [0, 100]},
                         'bar': {'color': "darkblue"},
                         'steps': [
-                            {'range': [0, 33], 'color': "red"},
-                            {'range': [33, 66], 'color': "yellow"},
-                            {'range': [66, 100], 'color': "green"}
-                        ]
+                            {'range': [0, 50], 'color': "lightgray"},
+                            {'range': [50, 80], 'color': "yellow"},
+                            {'range': [80, 100], 'color': "green"}
+                        ],
+                        'threshold': {
+                            'line': {'color': "red", 'width': 4},
+                            'thickness': 0.75,
+                            'value': 90
+                        }
                     }
                 ))
                 
                 st.plotly_chart(gauge, use_container_width=True)
                 
-                st.subheader("Recommandations")
+                # Recommendations
+                st.subheader("💡 Recommandations")
                 
-                if quality < 0.4:
-                    st.warning("Votre planning pourrait être amélioré. Essayez d'ajouter plus de contraintes ou de modifier vos activités.")
-                elif quality < 0.7:
-                    st.info("Votre planning est bon, mais il pourrait encore être optimisé.")
+                if quality < 0.5:
+                    st.warning("⚠️ Votre planning pourrait être amélioré. Essayez d'ajouter plus de contraintes ou de modifier vos activités.")
+                elif quality < 0.8:
+                    st.info("ℹ️ Votre planning est bon, mais il pourrait encore être optimisé.")
                 else:
-                    st.success("Excellent planning ! Votre journée est optimisée pour une productivité maximale.")
+                    st.success("🎉 Excellent planning ! Votre journée est optimisée pour une productivité maximale.")
             
             else:
-                st.subheader("Planning hebdomadaire optimisé")
+                # Weekly schedule
+                st.subheader("🗓️ Planning hebdomadaire optimisé")
                 
-                daily_schedules = []
                 all_activities_planned = []
                 total_weekly_reward = 0
                 
                 for day in range(1, 8):
-                    day_schedule, day_activities, day_reward = generate_optimized_schedule(
-                        env, model, user_constraints, day
-                    )
-                    daily_schedules.append(day_schedule)
-                    all_activities_planned.extend([(act, slot, reward, duration, day) for act, slot, reward, duration in day_activities])
-                    total_weekly_reward += day_reward
+                    optimizer = SimpleScheduleOptimizer(activities, day)
+                    day_activities = optimizer.optimize_schedule(user_constraints)
+                    all_activities_planned.extend([
+                        (act, slot, reward, duration, day) 
+                        for act, slot, reward, duration in day_activities
+                    ])
+                    total_weekly_reward += sum(reward for _, _, reward, _ in day_activities)
                 
-                fig = create_weekly_calendar(daily_schedules, env.activity_types, all_activities_planned)
+                # Weekly calendar visualization
+                fig = create_weekly_calendar(all_activities_planned)
                 st.plotly_chart(fig, use_container_width=True)
                 
-                st.subheader("Statistiques hebdomadaires")
+                # Weekly statistics
+                st.subheader("📊 Statistiques hebdomadaires")
                 
                 activities_by_day = {}
                 for day_idx in range(7):
@@ -559,47 +499,47 @@ def main():
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    st.subheader("Activités par jour")
+                    st.subheader("📅 Activités par jour")
                     fig = px.bar(
                         x=list(activities_by_day.keys()),
                         y=list(activities_by_day.values()),
                         title="Nombre d'activités par jour",
-                        labels={'x': 'Jour', 'y': 'Nombre d\'activités'}
+                        labels={'x': 'Jour', 'y': 'Nombre d\'activités'},
+                        color=list(activities_by_day.values()),
+                        color_continuous_scale='blues'
                     )
                     st.plotly_chart(fig, use_container_width=True)
                 
                 with col2:
-                    st.subheader("Score hebdomadaire")
-                    st.write(f"Score total de la semaine: {total_weekly_reward:.2f}")
+                    st.subheader("🏆 Score hebdomadaire")
+                    st.metric("Score total de la semaine", f"{total_weekly_reward:.2f}")
                     
-                    quality = min(max(total_weekly_reward / 70, 0), 1)
+                    quality = min(max(total_weekly_reward / 50, 0), 1)
                     
                     gauge = go.Figure(go.Indicator(
                         mode="gauge+number",
                         value=quality * 100,
                         domain={'x': [0, 1], 'y': [0, 1]},
-                        title={'text': "Qualité du planning hebdomadaire"},
+                        title={'text': "Qualité hebdomadaire (%)"},
                         gauge={
                             'axis': {'range': [0, 100]},
-                            'bar': {'color': "darkblue"},
+                            'bar': {'color': "darkgreen"},
                             'steps': [
-                                {'range': [0, 33], 'color': "red"},
-                                {'range': [33, 66], 'color': "yellow"},
-                                {'range': [66, 100], 'color': "green"}
+                                {'range': [0, 50], 'color': "lightgray"},
+                                {'range': [50, 80], 'color': "yellow"},
+                                {'range': [80, 100], 'color': "green"}
                             ]
                         }
                     ))
                     
                     st.plotly_chart(gauge, use_container_width=True)
                 
+                # Activity distribution for the week
                 activity_counts = {}
                 for act, _, _, _, _ in all_activities_planned:
-                    if act in activity_counts:
-                        activity_counts[act] += 1
-                    else:
-                        activity_counts[act] = 1
+                    activity_counts[act] = activity_counts.get(act, 0) + 1
                 
-                st.subheader("Répartition des activités sur la semaine")
+                st.subheader("🥧 Répartition des activités sur la semaine")
                 fig = px.pie(
                     values=list(activity_counts.values()),
                     names=list(activity_counts.keys()),
@@ -609,56 +549,85 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
                 
-                st.subheader("Exporter le planning")
+                # Export functionality
+                st.subheader("💾 Exporter le planning")
                 
                 export_data = []
                 days = list(day_options.keys())
                 
                 for day_idx, day_name in enumerate(days):
-                    day_activities = [(act, slot, duration) for act, slot, _, duration, day in all_activities_planned if day == day_idx + 1]
+                    day_activities = [
+                        (act, slot, duration) 
+                        for act, slot, _, duration, day in all_activities_planned 
+                        if day == day_idx + 1
+                    ]
                     for activity, time_slot, duration in day_activities:
                         export_data.append({
                             'Jour': day_name,
                             'Heure_Début': f"{time_slot:02d}:00",
+                            'Heure_Fin': f"{(time_slot + duration//60):02d}:{duration%60:02d}",
                             'Durée': f"{duration:.0f} min",
                             'Activité': activity
                         })
                 
-                export_df = pd.DataFrame(export_data)
-                
-                csv = export_df.to_csv(index=False)
-                st.download_button(
-                    label="Télécharger le planning (CSV)",
-                    data=csv,
-                    file_name=f"planning_hebdomadaire_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv"
-                )
+                if export_data:
+                    export_df = pd.DataFrame(export_data)
+                    csv = export_df.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Télécharger le planning (CSV)",
+                        data=csv,
+                        file_name=f"planning_hebdomadaire_{datetime.now().strftime('%Y%m%d')}.csv",
+                        mime="text/csv"
+                    )
     
     else:
-        st.write("""
-        Bienvenue dans votre Assistant Personnel de Gestion du Temps ! Cette application utilise l'intelligence artificielle
-        pour vous aider à optimiser votre emploi du temps quotidien ou hebdomadaire.
+        # Welcome screen
+        st.markdown("""
+        ## 🎯 Bienvenue dans votre Assistant Personnel de Gestion du Temps ! 
         
-        ### Comment ça marche ?
+        Cette application utilise l'intelligence artificielle pour vous aider à optimiser votre emploi du temps 
+        quotidien ou hebdomadaire.
         
-        Notre application utilise un algorithme d'apprentissage par renforcement appelé **Deep Q-Network (DQN)** pour analyser vos habitudes
-        et préférences, puis générer un planning optimisé qui maximise votre productivité et votre satisfaction.
+        ### 🔧 Comment ça marche ?
         
-        ###Fonctionnalités
+        Notre application utilise un algorithme d'optimisation intelligent pour analyser vos préférences
+        et générer un planning optimisé qui maximise votre productivité et votre satisfaction.
         
-        - **Planning quotidien**: Obtenez un emploi du temps optimisé pour une journée spécifique
-        - **Planning hebdomadaire**: Visualisez un calendrier complet pour toute la semaine
-        - **Activités personnalisées**: Définissez vos propres types d'activités
-        - **Contraintes horaires**: Ajoutez des activités obligatoires à des heures précises
-        - **Statistiques**: Analysez la qualité de votre planning et identifiez vos heures les plus productives
+        ### ✨ Fonctionnalités
         
-        ###Commencer
+        - **📆 Planning quotidien**: Obtenez un emploi du temps optimisé pour une journée spécifique
+        - **🗓️ Planning hebdomadaire**: Visualisez un calendrier complet pour toute la semaine
+        - **🎨 Activités personnalisées**: Définissez vos propres types d'activités
+        - **⏰ Contraintes horaires**: Ajoutez des activités obligatoires à des heures précises
+        - **📊 Statistiques**: Analysez la qualité de votre planning et identifiez vos heures les plus productives
+        - **💾 Export**: Téléchargez votre planning au format CSV
         
-        Utilisez les options dans la barre latérale pour personnaliser votre planning, puis cliquez sur "Générer planning" pour voir les résultats.
+        ### 🚀 Commencer
+        
+        Utilisez les options dans la barre latérale pour personnaliser votre planning, puis cliquez sur 
+        **"Générer planning"** pour voir les résultats.
+        
+        ---
+        *Optimisez votre temps avec l'IA ! ⚡*
         """)
         
-        st.image("../logo/4406306.png", 
-                 caption="Optimisez votre temps avec l'IA")
+        # Display activity preferences as a helpful reference
+        with st.expander("📋 Voir les préférences par défaut des activités"):
+            pref_data = []
+            for activity, prefs in ACTIVITY_PREFERENCES.items():
+                preferred_times = ", ".join([f"{h:02d}:00" for h in prefs['preferred_hours'][:5]])
+                if len(prefs['preferred_hours']) > 5:
+                    preferred_times += "..."
+                    
+                pref_data.append({
+                    'Activité': activity,
+                    'Heures préférées': preferred_times,
+                    'Durée typique': f"{prefs['duration']} min",
+                    'Priorité': f"{prefs['priority']}/10"
+                })
+            
+            pref_df = pd.DataFrame(pref_data)
+            st.dataframe(pref_df, use_container_width=True)
 
 if __name__ == "__main__":
     main()
