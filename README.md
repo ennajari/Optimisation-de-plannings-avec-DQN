@@ -1,123 +1,261 @@
-# Personal Scheduler: An AI-Based Daily Schedule Optimization Project
+# Assistant Personnel pour la Gestion du Temps
 
-This repository contains a reinforcement learning solution for optimizing daily schedules using Deep Q-Learning (DQN). The project predicts and suggests optimal activities based on various factors such as the time of day, weekend status, and activity duration.
+![Python](https://img.shields.io/badge/python-v3.8+-blue.svg)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-2.12.0-orange.svg)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.24.0-red.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## Table of Contents
+Une application intelligente conçue pour optimiser votre emploi du temps quotidien ou hebdomadaire en utilisant un algorithme d'apprentissage par renforcement basé sur Deep Q-Network (DQN). Ce projet analyse vos habitudes et préférences pour suggérer des plannings qui maximisent votre productivité et votre satisfaction.
 
-* [Overview](#overview)
-* [Project Structure](#project-structure)
-* [Installation](#installation)
-* [Usage](#usage)
-  * [Data Exploration](#data-exploration)
-  * [Data Preprocessing](#data-preprocessing)
-  * [Training the DQN Model](#training-the-dqn-model)
-  * [Running the Streamlit App](#running-the-streamlit-app)
-* [Models and Environment](#models-and-environment)
-* [Acknowledgements](#acknowledgements)
+## 📋 Table des matières
 
-## Overview
+- [Aperçu du projet](#aperçu-du-projet)
+- [Caractéristiques principales](#caractéristiques-principales)
+- [Technologies utilisées](#technologies-utilisées)
+- [Structure du projet](#structure-du-projet)
+- [Installation](#installation)
+- [Utilisation](#utilisation)
+- [Méthodologie](#méthodologie)
+- [Résultats attendus](#résultats-attendus)
+- [Limitations](#limitations)
+- [Améliorations futures](#améliorations-futures)
+- [Contribution](#contribution)
+- [Licence](#licence)
 
-The **Personal Scheduler** aims to automate the daily scheduling process based on historical activity data. Using Deep Q-Learning, it learns to schedule activities in a way that maximizes productivity while minimizing wasted time.
+## 🎯 Aperçu du projet
 
-The model is built using TensorFlow, and the environment is created using OpenAI's `gym` library to simulate a daily schedule. The project also provides a simple Streamlit app for interactive testing of the model.
+L'objectif de ce projet est de créer un assistant personnel qui aide les utilisateurs à planifier leurs journées ou semaines de manière optimale. En exploitant les données historiques des activités et un environnement de simulation basé sur OpenAI Gym, le modèle DQN propose des emplois du temps adaptés aux préférences de l'utilisateur tout en respectant des contraintes horaires spécifiques.
 
-## Project Structure
+## ✨ Caractéristiques principales
 
-```bash
-personal_scheduler/
-├── Data/
-│   ├── raw/atus_full_selected.csv          # Raw activity data
-│   └── processed/preprocessed_data.csv    # Cleaned and preprocessed data
-├── environment/
-│   └── schedule_env.py                    # Custom Gym environment for scheduling
-├── models/
-│   └── dqn_model.h5                       # Trained DQN model
-├── outputs/                                # Model outputs (logs, results)
-├── requirements.txt                       # Python dependencies
-├── notebooks/
-│   ├── 1_data_exploration.ipynb           # Exploratory data analysis (EDA)
-│   ├── 2_data_preprocessing.ipynb         # Data cleaning and preprocessing
-│   └── 3_dqn_training.ipynb               # Training the Deep Q-Network
-└── streamlit_app/
-    └── app.py                             # Streamlit app for interactive testing
+- **Optimisation intelligente** : Utilisation d'un algorithme DQN pour générer des plannings optimisés
+- **Personnalisation** : Possibilité de définir des activités personnalisées et des contraintes horaires
+- **Visualisation interactive** : Interface utilisateur Streamlit avec des graphiques Plotly pour visualiser les plannings quotidiens et hebdomadaires
+- **Analyse des performances** : Statistiques sur la productivité et la répartition des activités
+- **Exportation** : Téléchargement des plannings sous forme de fichiers CSV
+
+## 🛠️ Technologies utilisées
+
+- **Python** : Langage principal pour le développement
+- **TensorFlow** : Pour l'implémentation et l'entraînement du modèle DQN
+- **OpenAI Gym** : Pour la création d'un environnement de simulation personnalisé
+- **Streamlit** : Pour l'interface utilisateur interactive
+- **Pandas/NumPy** : Pour le prétraitement et la manipulation des données
+- **Plotly/Matplotlib/Seaborn** : Pour les visualisations de données
+- **Scikit-learn** : Pour l'encodage des données catégoriques
+
+## 📁 Structure du projet
+
 ```
-Data
-The data used in this project is stored in the Data/raw/ folder. The raw dataset atus_full_selected.csv contains activity records with details like activity duration, activity names, start time, and the day of the week.
-
-The Data/processed/ folder contains the cleaned and preprocessed version of the data that is used for training the model (preprocessed_data.csv).
-
-Environment
-The environment/ folder contains the custom scheduling environment for the reinforcement learning agent. This environment simulates the process of scheduling activities and provides feedback (reward) based on the actions taken.
-
-Models
-The models/ folder stores the trained DQN model (dqn_model.h5), which can be used to predict optimal actions (activities) based on the current state (time of day, day of the week, weekend status).
-
-Notebooks
-The notebooks/ directory contains Jupyter notebooks for:
-
-Data Exploration (1_data_exploration.ipynb): Understanding the structure of the dataset.
-Data Preprocessing (2_data_preprocessing.ipynb): Cleaning the dataset and preparing it for training.
-DQN Training (3_dqn_training.ipynb): Training the reinforcement learning agent using DQN.
-Streamlit App
-The streamlit_app/ folder contains the app (app.py), which allows users to interact with the trained model through a web interface.
-
-Installation
-To run this project, make sure you have Python 3.x installed. You can create a virtual environment and install the necessary dependencies by running the following commands:
-# Create and activate a virtual environment
-```bash
-python -m venv schedule_env
-source schedule_env/bin/activate  # On Windows use `schedule_env\Scripts\activate`
+📁 Optimisation-de-plannings-avec-DQN/
+├── 📁 Data/                  # Données du projet
+│   ├── 📁 Processed/        # Données prétraitées
+│   │   ├── activity_encoder.pkl
+│   │   └── cleaned_data.csv
+│   └── 📁 raw/              # Données brutes
+│       └── atus_full_selected.csv
+├── 📁 environment/          # Environnement RL personnalisé
+│   ├── 📄 schedule_env.py  # Implémentation de l'environnement Gym
+├── 📁 models/              # Modèles entraînés
+│   ├── dqn_final.h5
+│   └── dqn_schedule_model.h5
+├── 📁 notebooks/           # Notebooks Jupyter
+│   ├── 2_data_preprocessing.ipynb  # Prétraitement des données
+│   └── 3_dqn_training.ipynb       # Entraînement du DQN
+└── 📁 ui/                  # Interface utilisateur
+    └── 📄 app.py          # Application Streamlit
 ```
-# Install required dependencies
-```bash
-pip install -r requirements.txt
-```
-# Usage
-Data Exploration
-Run the 1_data_exploration.ipynb notebook to perform exploratory data analysis (EDA) on the raw activity data. This will give you an understanding of the dataset's structure, activity types, and potential patterns.
-```bash
-jupyter notebook notebooks/1_data_exploration.ipynb
-```
-# Data Preprocessing
-To clean and preprocess the data, run the 2_data_preprocessing.ipynb notebook. This notebook will handle missing values, convert time data, and perform feature engineering.
+
+### Description des fichiers
+
+#### 📂 Data/
+Contient les données brutes (`raw/`) et prétraitées (`Processed/`).
+- `atus_full_selected.csv` : Données brutes des activités (extraites de l'American Time Use Survey ou synthétiques pour les tests)
+- `cleaned_data.csv` : Données nettoyées et prêtes pour l'entraînement
+- `activity_encoder.pkl` : Encodeur pour les noms d'activités
+
+#### 📂 environment/
+- `schedule_env.py` : Implémentation de l'environnement Gym pour simuler la planification des activités
+
+#### 📂 models/
+Modèles DQN entraînés.
+- `dqn_schedule_model.h5` : Modèle principal utilisé par l'application
+- `dqn_final.h5` : Modèle final sauvegardé après l'entraînement
+
+#### 📂 notebooks/
+- `2_data_preprocessing.ipynb` : Prétraitement des données, incluant le nettoyage, la conversion des heures, et l'encodage des activités
+- `3_dqn_training.ipynb` : Entraînement du modèle DQN avec suivi des récompenses et des pertes
+
+#### 📂 ui/
+- `app.py` : Application Streamlit pour interagir avec l'utilisateur, générer des plannings, et visualiser les résultats
+
+## 🚀 Installation
+
+### Prérequis
+
+- Python 3.8+
+- pip (gestionnaire de paquets Python)
+- Environnement virtuel (recommandé)
+
+### Étapes d'installation
+
+1. **Cloner le dépôt :**
+   ```bash
+   git clone https://github.com/votre-nom/Optimisation-de-plannings-avec-DQN.git
+   cd Optimisation-de-plannings-avec-DQN
+   ```
+
+2. **Créer et activer un environnement virtuel :**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Sur Windows : venv\Scripts\activate
+   ```
+
+3. **Installer les dépendances :**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Créer un fichier `requirements.txt` avec les dépendances suivantes :**
+   ```txt
+   tensorflow==2.12.0
+   gym==0.23.1
+   streamlit==1.24.0
+   pandas==1.5.3
+   numpy==1.24.3
+   matplotlib==3.7.1
+   seaborn==0.12.2
+   plotly==5.14.1
+   scikit-learn==1.2.2
+   tqdm==4.65.0
+   ```
+
+5. **Vérifier les données :**
+   Placez vos données brutes dans `Data/raw/atus_full_selected.csv` ou utilisez les données synthétiques générées automatiquement par l'environnement.
+
+## 💻 Utilisation
+
+### 1. Prétraitement des données
+
+Exécutez le notebook `2_data_preprocessing.ipynb` pour nettoyer et transformer les données brutes :
+
 ```bash
 jupyter notebook notebooks/2_data_preprocessing.ipynb
 ```
-# Training the DQN Model
-To train the Deep Q-Network (DQN), run the 3_dqn_training.ipynb notebook. This will train the model on the processed data and save the trained model to models/dqn_model.h5.
+
+Ce notebook génère `cleaned_data.csv` et `activity_encoder.pkl` dans `Data/Processed/`.
+
+### 2. Entraînement du modèle DQN
+
+Exécutez le notebook `3_dqn_training.ipynb` pour entraîner le modèle DQN :
+
 ```bash
 jupyter notebook notebooks/3_dqn_training.ipynb
 ```
-# Running the Streamlit App
-After training the model, you can use the streamlit_app/app.py to launch an interactive web app where you can test the model by providing different inputs.
+
+Le modèle entraîné est sauvegardé dans `models/dqn_schedule_model.h5`.
+
+### 3. Lancer l'application Streamlit
+
+Lancez l'application utilisateur avec la commande suivante :
+
 ```bash
 streamlit run ui/app.py
 ```
-# Models and Environment
-Schedule Environment
-The scheduling environment is implemented in the environment/schedule_env.py file using the gym library. It models the process of scheduling activities, where each action corresponds to selecting an activity, and the reward is calculated based on how productive the chosen activity is.
 
-# Deep Q-Network (DQN)
-The DQN model is implemented using TensorFlow in the 3_dqn_training.ipynb notebook. The model consists of a neural network with two hidden layers, and it learns to map states (time of day, day of the week, weekend status) to actions (activities) using Q-learning.
+L'application s'ouvre dans votre navigateur par défaut. Vous pouvez :
+- Choisir entre un planning quotidien ou hebdomadaire
+- Personnaliser les activités et ajouter des contraintes horaires
+- Visualiser les plannings et leurs statistiques
+- Exporter les plannings en CSV
 
-# Acknowledgements
-This project uses OpenAI's Gym for building the environment.
-TensorFlow is used for creating and training the DQN model.
-The Streamlit app is powered by the Streamlit library for building interactive web applications.
+### Exemple d'utilisation
+
+1. Sélectionnez "Planning quotidien" dans la barre latérale
+2. Choisissez un jour (ex. : Lundi)
+3. Activez ou personnalisez les activités
+4. Ajoutez des contraintes horaires (ex. : "Travail" de 9h à 12h)
+5. Cliquez sur "Générer planning quotidien" pour voir le planning optimisé avec des visualisations interactives
+
+![Optimized Schedule](..\ui\1.png)
+![Optimized Schedule](..\ui\2.png)
+![Optimized Schedule](..\ui\3.png)
+![Optimized Schedule](..\ui\33.png)
+![Optimized Schedule](..\ui\/44.png)
+![Optimized Schedule](..\ui\222.png)
+![Optimized Schedule](..ui\Sans-titre-2025-05-06-1603.png)
+
+## 🧠 Méthodologie
+
+### Algorithme
+
+Le projet utilise un **Deep Q-Network (DQN)**, un algorithme d'apprentissage par renforcement qui apprend à maximiser une récompense cumulative en planifiant des activités. Le DQN :
+
+- Analyse les habitudes historiques des utilisateurs (heures préférées, durées, fréquences)
+- Évite les conflits horaires et respecte les contraintes
+- Optimise la cohérence et la satisfaction en regroupant les activités similaires
+
+### Environnement
+
+L'environnement (`schedule_env.py`) est construit avec OpenAI Gym :
+
+- **Espace d'actions** : Choix d'une activité et d'un créneau horaire
+- **Espace d'observation** : Inclut l'agenda actuel, le jour de la semaine, et le temps restant
+- **Récompense** : Basée sur la proximité des activités planifiées avec les préférences historiques et la cohérence des plannings
+
+### Données
+
+Les données sont issues de l'American Time Use Survey (ATUS) ou de données synthétiques générées pour les tests. Les colonnes clés incluent :
+
+- `ACTIVITY_NAME` : Nom de l'activité
+- `TUACTDUR24` : Durée de l'activité (en minutes)
+- `TUSTARTTIM` : Heure de début
+- `TUDIARYDAY` : Jour de la semaine
+
+### Évaluation
+
+L'évaluation repose sur :
+
+- **Productivité** : Mesurée par la récompense totale du DQN
+- **Satisfaction** : Basée sur l'alignement des plannings avec les préférences historiques
+- **Visualisations** : Graphiques interactifs pour analyser la répartition des activités et les scores de productivité
+
+## 📊 Résultats attendus
+
+- **Plannings optimisés** : Horaires cohérents et adaptés aux préférences de l'utilisateur
+- **Visualisations claires** : Graphiques Plotly pour une compréhension facile des plannings
+- **Statistiques utiles** : Identification des heures les plus productives et de la répartition des activités
+
+## ⚠️ Limitations
+
+- Les données synthétiques peuvent ne pas refléter parfaitement les comportements réels
+- Le modèle DQN nécessite un entraînement suffisant pour converger vers des plannings optimaux
+- Les contraintes horaires complexes peuvent réduire la flexibilité du modèle
+
+## 🔮 Améliorations futures
+
+- Intégration de données utilisateur en temps réel via une API
+- Prise en charge de contraintes multi-jours et de dépendances entre activités
+- Optimisation de l'algorithme avec des variantes avancées (Double DQN, Dueling DQN)
+- Amélioration de l'interface avec des options de personnalisation avancées
+
+## 🤝 Contribution
+
+Les contributions sont les bienvenues ! Pour contribuer :
+
+1. Forkez le dépôt
+2. Créez une branche pour vos modifications (`git checkout -b feature/amélioration`)
+3. Soumettez une pull request avec une description claire des changements
+
+## 📄 Licence
+
+Ce projet est sous licence MIT. Consultez le fichier [LICENSE](LICENSE) pour plus de détails.
+---
+
+⭐ N'hésitez pas à donner une étoile au projet si vous l'avez trouvé utile !
 
 
-### Additional Enhancements
 
-1. **Project Title and Description**: Clearly state the title and a brief description of the project at the beginning.
+ 
 
-2. **Table of Contents**: Include a table of contents to make it easier for users to navigate through the document.
 
-3. **Detailed Sections**: Break down the content into detailed sections such as Overview, Project Structure, Installation, Usage, Models and Environment, and Acknowledgements.
-
-4. **Code Snippets**: Include code snippets for installation and usage instructions to make it easier for users to follow along.
-
-5. **Visual Aids**: Use visual aids like code blocks and lists to make the information more digestible.
-
-6. **Acknowledgements**: Acknowledge the tools and libraries used in the project.
-
-This enhanced `README.md` should provide a comprehensive guide to your project, making it easier for users to understand and use.
