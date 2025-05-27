@@ -177,13 +177,13 @@ L'application s'ouvre dans votre navigateur par défaut. Vous pouvez :
 4. Ajoutez des contraintes horaires (ex. : "Travail" de 9h à 12h)
 5. Cliquez sur "Générer planning quotidien" pour voir le planning optimisé avec des visualisations interactives
 
-![Optimized Schedule](..\ui\1.png)
-![Optimized Schedule](..\ui\2.png)
-![Optimized Schedule](..\ui\3.png)
-![Optimized Schedule](..\ui\33.png)
-![Optimized Schedule](..\ui\/44.png)
-![Optimized Schedule](..\ui\222.png)
-![Optimized Schedule](..ui\Sans-titre-2025-05-06-1603.png)
+![Optimized Schedule](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/blob/main/ui/1.png)
+![Optimized Schedule](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/blob/main/ui/2.png)
+![Optimized Schedule](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/blob/main/ui/3.png)
+![Optimized Schedule](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/blob/main/ui/33.png)
+![Optimized Schedule](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/blob/main/ui/44.png)
+![Optimized Schedule](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/blob/main/ui/222.png)
+![Optimized Schedule](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/blob/main/ui/Sans-titre-2025-05-06-1603.png)
 
 ## 🧠 Méthodologie
 
