@@ -101,7 +101,7 @@ Modèles DQN entraînés.
 
 1. **Cloner le dépôt :**
    ```bash
-   git clone https://github.com/votre-nom/Optimisation-de-plannings-avec-DQN.git
+   git clone https://github.com/ennajari/Optimisation-de-plannings-avec-DQN.git
    cd Optimisation-de-plannings-avec-DQN
    ```
 
