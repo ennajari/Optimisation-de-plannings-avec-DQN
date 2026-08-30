@@ -2,8 +2,13 @@
 Evaluation harness for Optimisation-de-plannings-avec-DQN.
 Computes performance, accuracy, latency, and quality assurance metrics.
 """
+import sys
+import os
 import time
 import json
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from monitoring.health import get_health_status
 from monitoring.metrics import update_eval_metric
 
