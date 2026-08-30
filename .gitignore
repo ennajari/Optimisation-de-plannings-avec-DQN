@@ -25,3 +25,12 @@ ENV/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+
+# Local Environment & Staging Security
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+.wiki-staging
+temp_*
