@@ -1,4 +1,10 @@
-# Optimisation de plannings avec DQN
+# Optimisation-de-plannings-avec-DQN
+
+![CI Pipeline](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/actions/workflows/ci_qa_monitoring.yml/badge.svg)
+[![GitHub Wiki](https://img.shields.io/badge/Documentation-GitHub%20Wiki-blue.svg)](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/wiki)
+[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-Passed-brightgreen.svg)](docs/MONITORING_AND_QA.md)
+
+---
 
 ![CI](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/actions/workflows/python-package.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
@@ -158,4 +164,12 @@ This project includes a standardized 4-Pillar Observability and QA framework:
 - **Health Controlling & Evaluation**: Liveness/readiness controllers in `monitoring/health.py` and evaluation harness in `scripts/eval_harness.py`.
 - **QA & Testing**: Automated Pytest/Vitest integration and CI workflows via `.github/workflows/ci_qa_monitoring.yml`.
 
-For complete instructions, architecture details, and commands, see [docs/MONITORING_AND_QA.md](file:///C:\Users\ROG FLOW\Desktop\Projects\Github_Projects\Optimisation-de-plannings-avec-DQN\docs\MONITORING_AND_QA.md).
+For complete instructions, architecture details, and commands, see [docs/MONITORING_AND_QA.md](docs/MONITORING_AND_QA.md).
+
+---
+
+## 📚 Documentation & GitHub Wiki
+- 📖 **Official Project Wiki**: [https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/wiki](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/wiki)
+- 🔍 **Architecture & Design**: [https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/wiki/Architecture-and-Design](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/wiki/Architecture-and-Design)
+- 🚀 **Getting Started Guide**: [https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/wiki/Getting-Started](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/wiki/Getting-Started)
+- 📊 **Monitoring & Observability**: [docs/MONITORING_AND_QA.md](docs/MONITORING_AND_QA.md)
