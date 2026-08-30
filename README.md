@@ -149,3 +149,13 @@ Ce projet est sous licence **MIT** — voir [LICENSE](LICENSE).
 - **Abdellah Ennajari** ([@ennajari](https://github.com/ennajari)) — seul contributeur de ce dépôt d'après l'historique Git.
 
 Ce dépôt est l'un des deux livrables d'un projet académique à deux réalisé avec un camarade sur le même sujet (planification via DQN entraîné sur ATUS) : le pipeline de notebooks de données/entraînement (`1_data_exploration` → `2_data_preprocessing` → training DQN) partage son origine avec celui du dépôt [`Bosaj/Assistant-Personnel-pour-la-Gestion-du-Temps`](https://github.com/Bosaj/Assistant-Personnel-pour-la-Gestion-du-Temps) (Abdellah Ennajari y a lui-même ajouté les notebooks le même jour que la création de ce dépôt-ci). Les deux dépôts ont ensuite évolué indépendamment, chacun avec sa propre interface : celle-ci (Streamlit, implémentée mais en mode heuristique) et celle de l'autre dépôt (`dashboard/app.py`, non implémentée à ce jour).
+
+
+## 📊 Monitoring, Controlling, Evaluation & QA
+
+This project includes a standardized 4-Pillar Observability and QA framework:
+- **Logs & Prometheus/Grafana Monitoring**: Configured in `monitoring/` with Prometheus scraper configs and Grafana dashboards.
+- **Health Controlling & Evaluation**: Liveness/readiness controllers in `monitoring/health.py` and evaluation harness in `scripts/eval_harness.py`.
+- **QA & Testing**: Automated Pytest/Vitest integration and CI workflows via `.github/workflows/ci_qa_monitoring.yml`.
+
+For complete instructions, architecture details, and commands, see [docs/MONITORING_AND_QA.md](file:///C:\Users\ROG FLOW\Desktop\Projects\Github_Projects\Optimisation-de-plannings-avec-DQN\docs\MONITORING_AND_QA.md).
