@@ -1,5 +1,8 @@
 # Optimisation-de-plannings-avec-DQN
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ennajari/Optimisation-de-plannings-avec-DQN) [![GitHub release](https://img.shields.io/github/v/release/ennajari/Optimisation-de-plannings-avec-DQN?color=blue&label=release)](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/releases) [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
+
 ![CI Pipeline](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/actions/workflows/ci_qa_monitoring.yml/badge.svg)
 [![GitHub Wiki](https://img.shields.io/badge/Documentation-GitHub%20Wiki-blue.svg)](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/wiki)
 [![Quality Gate](https://img.shields.io/badge/Quality%20Gate-Passed-brightgreen.svg)](docs/MONITORING_AND_QA.md)
