@@ -11,7 +11,7 @@
 
 ---
 
-![CI](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/actions/workflows/python-package.yml/badge.svg)
+![CI](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/actions/workflows/ci_qa_monitoring.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python](https://img.shields.io/badge/python-3.11-blue.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red.svg)
