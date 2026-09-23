@@ -6,8 +6,8 @@
 ![CI Pipeline](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/actions/workflows/ci_qa_monitoring.yml/badge.svg)
 [![GitHub Wiki](https://img.shields.io/badge/Documentation-GitHub%20Wiki-blue.svg)](https://github.com/ennajari/Optimisation-de-plannings-avec-DQN/wiki)
 [![Quality Gate](https://img.shields.io/badge/Quality%20Gate-Passed-brightgreen.svg)](docs/MONITORING_AND_QA.md)
-[![Sponsor Bosaj](https://img.shields.io/badge/Sponsor-Bosaj-ea4aaa?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/Bosaj)
 [![Sponsor ennajari](https://img.shields.io/badge/Sponsor-ennajari-ea4aaa?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/ennajari)
+[![Sponsor Bosaj](https://img.shields.io/badge/Sponsor-Bosaj-ea4aaa?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/Bosaj)
 
 ---
 
